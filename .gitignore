@@ -1,0 +1,67 @@
+# OS / Filesystem
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+
+# Editors / IDEs
+.vscode/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.python-version
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.nox/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+dist/
+build/
+site/
+pip-wheel-metadata/
+
+# Logs / Runtime
+*.log
+*.pid
+*.pid.lock
+*.out
+*.err
+
+# Environment / Secrets
+.env
+.env.*
+*.local
+
+# Local Workspace
+local/
+
+# Certificates / Profiles
+*.mobileconfig
+*.cer
+*.crt
+*.der
+*.pem
+Surge-Root-CA.mobileconfig
+Babywbx-Surge-Root-CA.mobileconfig
+*.p12
+*.pfx
+*.key

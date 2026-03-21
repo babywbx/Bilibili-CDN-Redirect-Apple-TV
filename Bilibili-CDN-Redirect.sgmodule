@@ -1,0 +1,11 @@
+#!name=Bilibili CDN Redirect for Apple TV
+#!category=By Babywbx
+#!desc=专为 Apple TV Cheers App 优化的 B 站 CDN 重定向模块，适配 DASH，支持编码偏好与日志控制。
+#!arguments=cdn=cn-hk-eq-01-09.bilivideo.com&cdnBackup=cn-hk-eq-01-13.bilivideo.com&codec=&logLevel=WARN&debug=true
+#!arguments-desc=cdn: [主机名] 主链接替换目标\n    ├ cn-hk-eq-01-09.bilivideo.com: 香港等保节点 01-09\n    ├ cn-hk-eq-01-12.bilivideo.com: 香港等保节点 01-12\n    └ cn-hk-eq-01-13.bilivideo.com: 香港等保节点 01-13\n请选择主链接要替换到的 CDN 主机名。\n\ncdnBackup: [主机名] 备用链接替换目标\n    ├ cn-hk-eq-01-09.bilivideo.com: 香港等保节点 01-09\n    ├ cn-hk-eq-01-12.bilivideo.com: 香港等保节点 01-12\n    └ cn-hk-eq-01-13.bilivideo.com: 香港等保节点 01-13\n请选择备用链接要替换到的 CDN 主机名。\n\ncodec: [编码] DASH 视频编码偏好\n    ├ AVC/H264/H.264: H.264（codecid=7）\n    ├ HEVC/H265/H.265: H.265（codecid=12）\n    └ AV1: AOMedia Video 1（codecid=13）\n留空表示不筛选编码。\n\nlogLevel: [调试] 日志等级\n    ├ ERROR: ❌ 错误\n    ├ WARN: ⚠️ 警告（默认）\n    ├ INFO: ℹ️ 信息\n    └ DEBUG: 🐞 调试\n选择脚本日志输出等级。\n\ndebug: [增强] 调试模式开关\n    ├ true: 开启（Apple TV 用户建议开启以显示脚本提示）\n    └ false: 关闭\n如果想要在 Apple TV 显示脚本提示需要设置 debug true。
+
+[Script]
+Bili_CDN_Redirect = type=http-response,pattern=^https?:\/\/api\.bilibili\.com\/(?:x\/player\/(?:(?:wbi\/)?playurl|wbi\/v2)|pgc\/player\/web\/v\d\/playurl|pugv\/player\/web\/playurl),requires-body=1,engine=jsc,script-path=https://raw.githubusercontent.com/babywbx/bilibili-cdn-redirect-apple-tv/main/Bilibili-CDN-Redirect.js,max-size=262144,argument=cdn=%cdn%&cdn_backup=%cdnBackup%&log_level=%logLevel%&codec=%codec%&debug=%debug%,debug=%debug%
+
+[MITM]
+hostname = %APPEND% api.bilibili.com
