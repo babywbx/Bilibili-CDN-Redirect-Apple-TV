@@ -1,0 +1,17 @@
+#!name=Bilibili CDN Redirect for Apple TV
+#!desc=专为 Apple TV Cheers App 优化的 B 站 CDN 重定向模块，适配 DASH，支持编码偏好与日志控制。
+#!author=Babywbx
+#!homepage=https://github.com/babywbx/bilibili-cdn-redirect-apple-tv
+
+[Argument]
+cdn = select,"cn-hk-eq-01-09.bilivideo.com","cn-hk-eq-01-12.bilivideo.com","cn-hk-eq-01-13.bilivideo.com",tag=主链接 CDN,desc=主链接要替换到的 CDN 主机名（香港等保节点）。
+cdn_backup = select,"cn-hk-eq-01-13.bilivideo.com","cn-hk-eq-01-09.bilivideo.com","cn-hk-eq-01-12.bilivideo.com",tag=备用链接 CDN,desc=备用链接要替换到的 CDN 主机名（香港等保节点）。
+codec = select,"AUTO","AVC","HEVC","AV1",tag=编码偏好,desc=DASH 视频编码偏好。AUTO 表示不筛选编码；AVC 为 H.264，HEVC 为 H.265，AV1 为 AOMedia Video 1。
+log_level = select,"WARN","ERROR","INFO","DEBUG",tag=日志等级,desc=脚本日志输出等级。
+debug = switch,true,false,tag=调试模式,desc=开启后在 Apple TV 上显示脚本提示。Apple TV 用户建议开启。
+
+[Script]
+http-response ^https?:\/\/api\.bilibili\.com\/(?:x\/player\/(?:(?:wbi\/)?playurl|wbi\/v2)|pgc\/player\/web\/v\d\/playurl|pugv\/player\/web\/playurl) script-path=https://raw.githubusercontent.com/babywbx/bilibili-cdn-redirect-apple-tv/main/Bilibili-CDN-Redirect.js, requires-body=true, timeout=10, tag=Bili_CDN_Redirect, argument=[{cdn},{cdn_backup},{codec},{log_level},{debug}]
+
+[MITM]
+hostname = api.bilibili.com
