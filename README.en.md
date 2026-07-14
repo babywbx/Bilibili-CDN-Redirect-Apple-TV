@@ -2,7 +2,7 @@
 
 <h1>Bilibili CDN Redirect for Apple TV</h1>
 
-A Surge module and response-rewrite script for **Apple TV Cheers App**<br/>
+A Surge module / Loon plugin and response-rewrite script for **Apple TV Cheers App**<br/>
 Redirect media URLs returned by Bilibili playback APIs to a designated CDN
 
 [简体中文](./README.md) · **English**
@@ -36,7 +36,7 @@ Redirect media URLs returned by Bilibili playback APIs to a designated CDN
 
 ## 📖 Overview
 
-`Bilibili CDN Redirect` uses Surge `http-response` scripting to rewrite JSON responses returned by Bilibili playback endpoints and redirect media URLs to a designated CDN.
+`Bilibili CDN Redirect` uses Surge / Loon `http-response` scripting to rewrite JSON responses returned by Bilibili playback endpoints and redirect media URLs to a designated CDN.
 
 Primary use cases:
 
@@ -67,11 +67,13 @@ Primary use cases:
 
 ## 🧭 Deployment Requirements
 
-### 1. Surge
+### 1. Proxy client
 
-- The latest **Surge Mac / Surge iOS** versions are recommended
+This project ships both a Surge module and a Loon plugin. They are functionally identical — pick either one.
+
+- The latest **Surge Mac / Surge iOS** or **Loon iOS / Loon tvOS** versions are recommended
 - The preferred topology is **Surge Mac** handling Apple TV egress traffic
-- Apple TV and the Surge host should be on the same network
+- Apple TV and the proxy client host should be on the same network
 
 Recommended topology:
 
@@ -80,7 +82,7 @@ Recommended topology:
 
 > \[!IMPORTANT]
 >
-> If Apple TV traffic does not pass through Surge, the module will not be triggered.
+> If Apple TV traffic does not pass through the proxy client, the module will not be triggered.
 
 ### 2. Apple TV certificate deployment environment
 
@@ -102,8 +104,8 @@ Recommended personal deployment model:
 
 ### 3. Network reachability
 
-- Apple TV traffic must actually pass through Surge
-- The hosted `.sgmodule` and `.js` URLs must be reachable by the Surge instance
+- Apple TV traffic must actually pass through the proxy client
+- The hosted `.sgmodule` / `.plugin` and `.js` URLs must be reachable by the proxy client
 - GitHub Raw may be used as the default public distribution path
 - `192.168.1.100:8000` is used in this document as the default LAN self-hosting example
 
@@ -121,14 +123,15 @@ The recommended installation and reference URLs are the GitHub Raw endpoints:
 
 ```text
 https://raw.githubusercontent.com/babywbx/bilibili-cdn-redirect-apple-tv/main/Bilibili-CDN-Redirect.sgmodule
+https://raw.githubusercontent.com/babywbx/bilibili-cdn-redirect-apple-tv/main/Bilibili-CDN-Redirect.plugin
 https://raw.githubusercontent.com/babywbx/bilibili-cdn-redirect-apple-tv/main/Bilibili-CDN-Redirect.js
 ```
 
-For public distribution, this is the simplest and most stable path.
+Surge uses the `.sgmodule`, Loon uses the `.plugin`, and both share the same `.js` script. For public distribution, this is the simplest and most stable path.
 
 ### 2. Update `script-path`
 
-If you do not want to use the default GitHub Raw script path and instead prefer LAN self-hosting, edit [Bilibili-CDN-Redirect.sgmodule](./Bilibili-CDN-Redirect.sgmodule) and replace:
+If you do not want to use the default GitHub Raw script path and instead prefer LAN self-hosting, edit [Bilibili-CDN-Redirect.sgmodule](./Bilibili-CDN-Redirect.sgmodule) — or [Bilibili-CDN-Redirect.plugin](./Bilibili-CDN-Redirect.plugin) for Loon — and replace:
 
 ```text
 script-path=https://raw.githubusercontent.com/babywbx/bilibili-cdn-redirect-apple-tv/main/Bilibili-CDN-Redirect.js
@@ -171,6 +174,20 @@ Post-installation checklist:
 - Surge can access the configured `script-path`
 - `api.bilibili.com` is included in the MITM host list
 
+> \[!TIP]
+>
+> After changing the `#!arguments` declaration, **remove and re-add** the module. Surge stores argument values alongside the module instance, so a plain Update may not refresh the argument UI.
+
+### 4. Install the plugin in Loon
+
+Loon users should install the `.plugin` file instead:
+
+```text
+https://raw.githubusercontent.com/babywbx/bilibili-cdn-redirect-apple-tv/main/Bilibili-CDN-Redirect.plugin
+```
+
+Install it by URL from Loon's **Plugin** page. Arguments are presented as dropdowns and toggles, so hostnames never need to be typed by hand.
+
 <div align="right">
 
 [![][back-to-top]](#readme-top)
@@ -211,6 +228,8 @@ This module already includes:
 [MITM]
 hostname = %APPEND% api.bilibili.com
 ```
+
+`%APPEND%` is a Surge-specific operator that appends a host without overwriting the existing list. Loon does not support it, so [Bilibili-CDN-Redirect.plugin](./Bilibili-CDN-Redirect.plugin) declares `hostname = api.bilibili.com` directly.
 
 ### 3. Manual trust on iPhone / iPad / Vision Pro
 
@@ -418,26 +437,33 @@ Supported arguments:
 | --- | --- | --- |
 | `cdn` | Primary CDN hostname | `cn-hk-eq-01-09.bilivideo.com` |
 | `cdnBackup` | Backup CDN hostname | `cn-hk-eq-01-13.bilivideo.com` |
-| `codec` | Preferred codec, optional | empty |
+| `codec` | Preferred codec, `AUTO` disables filtering | `AUTO` |
 | `logLevel` | Log level: `ERROR` / `WARN` / `INFO` / `DEBUG` | `WARN` |
 | `debug` | Debug switch | `true` |
 
+Accepted codec values:
+
+- `AUTO`: no codec filtering
+- `AVC` / `H264` / `H.264`: H.264 (`codecid=7`)
+- `HEVC` / `H265` / `H.265`: H.265 (`codecid=12`)
+- `AV1`: AOMedia Video 1 (`codecid=13`)
+
 Argument substitution model:
 
-- Surge module parameters use `%param%` placeholders
-- This module maps:
-  - `%cdn%`
-  - `%cdnBackup%`
-  - `%logLevel%`
-  - `%codec%`
-  - `%debug%`
-  into the actual script rule
+The two clients use **different** declaration and placeholder syntax. Do not mix them.
 
-Suggested codec values:
+- **Surge** ([Bilibili-CDN-Redirect.sgmodule](./Bilibili-CDN-Redirect.sgmodule))
+  - Declared in `#!arguments` as `name:default`, comma-separated
+  - Referenced with triple-brace placeholders such as `{{{cdn}}}`
+  - Rendered as one text field per argument
+- **Loon** ([Bilibili-CDN-Redirect.plugin](./Bilibili-CDN-Redirect.plugin))
+  - Declared in a dedicated `[Argument]` section, supporting `select` (dropdown) and `switch` (toggle) types
+  - Referenced with single-brace placeholders, passed via `argument=[{cdn},{cdn_backup},...]`
+  - Rendered as dropdowns and toggles, so hostnames never need to be typed by hand
 
-- `AVC` / `H264` / `H.264`
-- `HEVC` / `H265` / `H.265`
-- `AV1`
+> \[!NOTE]
+>
+> Both clients share the same [Bilibili-CDN-Redirect.js](./Bilibili-CDN-Redirect.js). The script accepts `$argument` in both string and object form, so there is no need to maintain separate scripts per client.
 
 <div align="right">
 

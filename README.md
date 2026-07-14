@@ -2,7 +2,7 @@
 
 <h1>Bilibili CDN Redirect for Apple TV</h1>
 
-适用于 **Apple TV Cheers App** 的 Surge 模块与响应重写脚本<br/>
+适用于 **Apple TV Cheers App** 的 Surge 模块 / Loon 插件与响应重写脚本<br/>
 将 Bilibili 播放接口返回的媒体地址重定向至指定 CDN
 
 **简体中文** · [English](./README.en.md)
@@ -36,7 +36,7 @@
 
 ## 📖 概述
 
-`Bilibili CDN Redirect` 基于 Surge 的 `http-response` 脚本机制，对 Bilibili 播放接口返回的 JSON 响应进行改写，将 `playurl` / `wbi/v2` 返回的媒体地址重定向到指定 CDN。
+`Bilibili CDN Redirect` 基于 Surge / Loon 的 `http-response` 脚本机制，对 Bilibili 播放接口返回的 JSON 响应进行改写，将 `playurl` / `wbi/v2` 返回的媒体地址重定向到指定 CDN。
 
 该模块主要用于：
 
@@ -67,11 +67,13 @@
 
 ## 🧭 部署要求
 
-### 1. Surge
+### 1. 代理客户端
 
-- 建议使用最新版本的 **Surge Mac / Surge iOS**
+本项目同时提供 Surge 模块与 Loon 插件，二者功能一致，任选其一即可。
+
+- 建议使用最新版本的 **Surge Mac / Surge iOS**，或 **Loon iOS / Loon tvOS**
 - 建议由 **Surge Mac** 负责 Apple TV 出口流量
-- Apple TV 与运行 Surge 的设备应处于同一网络环境
+- Apple TV 与运行代理客户端的设备应处于同一网络环境
 
 推荐部署拓扑如下：
 
@@ -80,7 +82,7 @@
 
 > \[!IMPORTANT]
 >
-> 若 Apple TV 流量未经过 Surge，则模块不会触发。
+> 若 Apple TV 流量未经过代理客户端，则模块不会触发。
 
 ### 2. Apple TV 证书安装环境
 
@@ -102,8 +104,8 @@
 
 ### 3. 网络可达性
 
-- Apple TV 流量必须实际经过 Surge
-- `.sgmodule` 与 `.js` 的托管地址必须可被 Surge 实例访问
+- Apple TV 流量必须实际经过代理客户端
+- `.sgmodule` / `.plugin` 与 `.js` 的托管地址必须可被代理客户端访问
 - 默认公开分发路径可使用 GitHub Raw
 - 本地自托管示例统一使用局域网地址 `192.168.1.100:8000`
 
@@ -121,14 +123,15 @@
 
 ```text
 https://raw.githubusercontent.com/babywbx/bilibili-cdn-redirect-apple-tv/main/Bilibili-CDN-Redirect.sgmodule
+https://raw.githubusercontent.com/babywbx/bilibili-cdn-redirect-apple-tv/main/Bilibili-CDN-Redirect.plugin
 https://raw.githubusercontent.com/babywbx/bilibili-cdn-redirect-apple-tv/main/Bilibili-CDN-Redirect.js
 ```
 
-对于公开发布场景，这也是最简洁、最稳定的分发方式。
+Surge 使用 `.sgmodule`，Loon 使用 `.plugin`，两者共用同一份 `.js` 脚本。对于公开发布场景，这也是最简洁、最稳定的分发方式。
 
 ### 2. 修改 `script-path`
 
-如果不使用默认的 GitHub Raw 脚本地址，而是改为本地自托管，请先编辑 [Bilibili-CDN-Redirect.sgmodule](./Bilibili-CDN-Redirect.sgmodule)，将当前脚本地址：
+如果不使用默认的 GitHub Raw 脚本地址，而是改为本地自托管，请先编辑 [Bilibili-CDN-Redirect.sgmodule](./Bilibili-CDN-Redirect.sgmodule)（Loon 用户则编辑 [Bilibili-CDN-Redirect.plugin](./Bilibili-CDN-Redirect.plugin)），将当前脚本地址：
 
 ```text
 script-path=https://raw.githubusercontent.com/babywbx/bilibili-cdn-redirect-apple-tv/main/Bilibili-CDN-Redirect.js
@@ -170,6 +173,20 @@ https://raw.githubusercontent.com/babywbx/bilibili-cdn-redirect-apple-tv/main/Bi
 - 模块状态为已启用
 - Surge 可访问 `script-path`
 - `api.bilibili.com` 已包含在 MITM 主机列表中
+
+> \[!TIP]
+>
+> 修改 `#!arguments` 声明后，建议将模块**删除并重新添加**。Surge 会将参数值与模块实例一同保存，仅执行 Update 时参数界面可能不会刷新。
+
+### 4. 在 Loon 中安装插件
+
+Loon 用户请改用 `.plugin` 文件：
+
+```text
+https://raw.githubusercontent.com/babywbx/bilibili-cdn-redirect-apple-tv/main/Bilibili-CDN-Redirect.plugin
+```
+
+在 Loon 的**插件**页面通过 URL 安装后，参数以下拉菜单与开关的形式呈现，直接选择即可，无需手动输入主机名。
 
 <div align="right">
 
@@ -213,6 +230,8 @@ Surge 官方文档明确说明：
 [MITM]
 hostname = %APPEND% api.bilibili.com
 ```
+
+其中 `%APPEND%` 是 Surge 的主机追加操作符，用于在不覆盖既有列表的前提下追加主机。Loon 不支持该操作符，因此 [Bilibili-CDN-Redirect.plugin](./Bilibili-CDN-Redirect.plugin) 中直接声明 `hostname = api.bilibili.com`。
 
 ### 3. iPhone / iPad / Vision Pro 的手动信任
 
@@ -421,26 +440,33 @@ python3 -m http.server 8000 --bind 0.0.0.0
 | --- | --- | --- |
 | `cdn` | 主链路 CDN 主机名 | `cn-hk-eq-01-09.bilivideo.com` |
 | `cdnBackup` | 备用链路 CDN 主机名 | `cn-hk-eq-01-13.bilivideo.com` |
-| `codec` | 编码偏好，可留空 | 空 |
+| `codec` | 编码偏好，`AUTO` 表示不筛选 | `AUTO` |
 | `logLevel` | 日志等级：`ERROR` / `WARN` / `INFO` / `DEBUG` | `WARN` |
 | `debug` | 调试开关 | `true` |
 
+编码可选值：
+
+- `AUTO`：不筛选编码
+- `AVC` / `H264` / `H.264`：H.264（`codecid=7`）
+- `HEVC` / `H265` / `H.265`：H.265（`codecid=12`）
+- `AV1`：AOMedia Video 1（`codecid=13`）
+
 参数替换说明：
 
-- Surge 模块参数使用 `%param%` 占位符
-- 本模块会将：
-  - `%cdn%`
-  - `%cdnBackup%`
-  - `%logLevel%`
-  - `%codec%`
-  - `%debug%`
-  替换到实际脚本规则中
+两个客户端的参数声明与占位符语法**并不相同**，请勿混用。
 
-编码建议：
+- **Surge**（[Bilibili-CDN-Redirect.sgmodule](./Bilibili-CDN-Redirect.sgmodule)）
+  - 在 `#!arguments` 中以 `名称:默认值` 声明，多个参数用半角逗号分隔
+  - 正文中使用 `{{{名称}}}` 三层大括号占位符，例如 `{{{cdn}}}`
+  - 界面形态为每个参数一个文本输入框
+- **Loon**（[Bilibili-CDN-Redirect.plugin](./Bilibili-CDN-Redirect.plugin)）
+  - 在独立的 `[Argument]` 段中声明，支持 `select`（下拉选择）与 `switch`（开关）类型
+  - 正文中使用 `{名称}` 单层大括号占位符，通过 `argument=[{cdn},{cdn_backup},...]` 传入
+  - 界面形态为下拉菜单与开关，无需手动输入主机名
 
-- `AVC` / `H264` / `H.264`
-- `HEVC` / `H265` / `H.265`
-- `AV1`
+> \[!NOTE]
+>
+> 两个客户端共用同一份 [Bilibili-CDN-Redirect.js](./Bilibili-CDN-Redirect.js)。脚本同时兼容字符串形式与对象形式的 `$argument`，因此无需为不同客户端维护多份脚本。
 
 <div align="right">
 
