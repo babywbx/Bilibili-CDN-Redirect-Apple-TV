@@ -191,7 +191,14 @@ function main() {
     const dash = dataContainer.dash;
 
     // Filter video streams by codec when requested.
-    const codecArg = args.codec?.toString().trim().toUpperCase();
+    const rawCodecArg = args.codec
+      ?.toString()
+      .trim()
+      .replace(/^["']|["']$/g, "")
+      .trim()
+      .toUpperCase();
+    // AUTO / empty both mean "no codec filtering".
+    const codecArg = rawCodecArg === "AUTO" ? "" : rawCodecArg;
     if (codecArg) {
       const codecMap = {
         AVC: { name: "AVC", id: 7, pattern: /^avc1\./i },
