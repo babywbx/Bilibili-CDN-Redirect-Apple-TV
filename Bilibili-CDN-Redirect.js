@@ -204,9 +204,9 @@ function main() {
         AVC: { name: "AVC", id: 7, pattern: /^avc1\./i },
         H264: { name: "AVC", id: 7, pattern: /^avc1\./i },
         "H.264": { name: "AVC", id: 7, pattern: /^avc1\./i },
-        HEVC: { name: "HEVC", id: 12, pattern: /^hev1\./i },
-        H265: { name: "HEVC", id: 12, pattern: /^hev1\./i },
-        "H.265": { name: "HEVC", id: 12, pattern: /^hev1\./i },
+        HEVC: { name: "HEVC", id: 12, pattern: /^(?:hev1|hvc1)\./i },
+        H265: { name: "HEVC", id: 12, pattern: /^(?:hev1|hvc1)\./i },
+        "H.265": { name: "HEVC", id: 12, pattern: /^(?:hev1|hvc1)\./i },
         AV1: { name: "AV1", id: 13, pattern: /^av01\./i },
       };
 
