@@ -15,13 +15,13 @@ from pathlib import Path
 import base64
 
 
-DEFAULT_CERT_NAME = "Babywbx Surge Root CA"
-DEFAULT_PROFILE_NAME = "Babywbx Surge MITM Profile"
-DEFAULT_PROFILE_DESCRIPTION = "Root certificate profile for Bilibili CDN Redirect."
-DEFAULT_CERT_DESCRIPTION = "Installs the Babywbx Surge root CA certificate."
+DEFAULT_CERT_NAME = "Babywbx Root CA"
+DEFAULT_PROFILE_NAME = "Babywbx Root CA"
+DEFAULT_PROFILE_DESCRIPTION = "Root CA profile for Bilibili CDN Redirect for Apple TV."
+DEFAULT_CERT_DESCRIPTION = "Installs the Babywbx root CA certificate."
 DEFAULT_ORGANIZATION = "Babywbx"
-DEFAULT_PROFILE_ID = "com.babywbx.surge.rootca.profile"
-DEFAULT_PAYLOAD_ID = "com.babywbx.surge.rootca.cert"
+DEFAULT_PROFILE_ID = "com.babywbx.rootca.profile"
+DEFAULT_PAYLOAD_ID = "com.babywbx.rootca.cert"
 
 
 def load_certificate_bytes(cert_path: Path) -> bytes:
@@ -74,7 +74,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "certificate",
-        help="Path to the exported Surge root certificate (.cer/.crt/.der/.pem).",
+        help="Path to the exported root CA certificate (.cer/.crt/.der/.pem).",
     )
     parser.add_argument(
         "-o",

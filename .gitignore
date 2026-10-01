@@ -60,8 +60,6 @@ local/
 *.crt
 *.der
 *.pem
-Surge-Root-CA.mobileconfig
-Babywbx-Surge-Root-CA.mobileconfig
 *.p12
 *.pfx
 *.key
