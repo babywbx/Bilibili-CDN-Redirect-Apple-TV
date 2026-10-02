@@ -306,13 +306,13 @@ tvOS 没有浏览器，没法像 iPhone 那样点一下证书文件就安装。�
 仓库提供了转换脚本，用 [uv][uv-link] 可以直接从 GitHub 运行，不需要下载仓库。没有安装 uv 的话，先按 [uv 安装说明][uv-install-link] 安装：
 
 ```bash
-uv run https://raw.githubusercontent.com/babywbx/Bilibili-CDN-Redirect-Apple-TV/main/tools/apple-tv-profile/build_mobileconfig.py ~/Downloads/SurgeRootCA.cer
+uv run https://raw.githubusercontent.com/babywbx/Bilibili-CDN-Redirect-Apple-TV/main/tools/build_mobileconfig.py ~/Downloads/SurgeRootCA.cer
 ```
 
 不想装 uv 的话，先下载本仓库，在仓库根目录用 Python 3 运行（Windows 把 `python3` 换成 `python`）：
 
 ```bash
-python3 tools/apple-tv-profile/build_mobileconfig.py ~/Downloads/SurgeRootCA.cer
+python3 tools/build_mobileconfig.py ~/Downloads/SurgeRootCA.cer
 ```
 
 输出文件与证书同名、同目录，例如 `SurgeRootCA.mobileconfig`。描述文件里只有公钥证书，不包含私钥。

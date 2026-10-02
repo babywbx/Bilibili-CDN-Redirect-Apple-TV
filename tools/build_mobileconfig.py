@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""
-Build a certificate-only .mobileconfig for Apple TV profile import.
-
-Default branding is hard-coded for Babywbx.
-"""
+"""Build a certificate-only .mobileconfig for installing a root CA on Apple TV."""
 
 from __future__ import annotations
 
@@ -70,7 +66,7 @@ def build_profile(cert_path: Path) -> dict[str, object]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build a Babywbx-branded certificate-only .mobileconfig."
+        description="Build a certificate-only .mobileconfig from a root CA certificate."
     )
     parser.add_argument(
         "certificate",

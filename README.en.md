@@ -306,13 +306,13 @@ The file each method exports: Method 1 uses the `.crt` exported from Surge, Meth
 The repository includes a conversion script that [uv][uv-link] can run directly from GitHub, without downloading the repository. If uv is not installed, install it first by following the [uv installation guide][uv-install-link]:
 
 ```bash
-uv run https://raw.githubusercontent.com/babywbx/Bilibili-CDN-Redirect-Apple-TV/main/tools/apple-tv-profile/build_mobileconfig.py ~/Downloads/SurgeRootCA.cer
+uv run https://raw.githubusercontent.com/babywbx/Bilibili-CDN-Redirect-Apple-TV/main/tools/build_mobileconfig.py ~/Downloads/SurgeRootCA.cer
 ```
 
 If you prefer not to install uv, download this repository first and run the script with Python 3 from the repository root (on Windows, replace `python3` with `python`):
 
 ```bash
-python3 tools/apple-tv-profile/build_mobileconfig.py ~/Downloads/SurgeRootCA.cer
+python3 tools/build_mobileconfig.py ~/Downloads/SurgeRootCA.cer
 ```
 
 The output file has the same name as the certificate and is written to the same directory, for example `SurgeRootCA.mobileconfig`. The profile contains only the public certificate, not the private key.
