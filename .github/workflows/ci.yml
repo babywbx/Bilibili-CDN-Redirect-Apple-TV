@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  NODE_VERSION: "24"
+  PNPM_VERSION: "12.8.1"
+  OXLINT_VERSION: "1.86.0"
+  PRETTIER_VERSION: "3.9.9"
+
+jobs:
+  format:
+    name: Quality / Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Check formatting
+        run: |
+          pnpm dlx prettier@${{ env.PRETTIER_VERSION }} --check \
+            Bilibili-CDN-Redirect.js \
+            "tests/**/*.js" \
+            ".github/workflows/*.yml"
+
+  lint:
+    name: Quality / Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Run oxlint
+        run: |
+          pnpm dlx oxlint@${{ env.OXLINT_VERSION }} \
+            Bilibili-CDN-Redirect.js \
+            tests
+
+  test:
+    name: Test / Node
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Show Node.js version
+        run: node --version
+
+      - name: Run tests
+        run: node --test
