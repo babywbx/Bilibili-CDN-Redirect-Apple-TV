@@ -72,7 +72,8 @@ function normalizeHost(host, fallbackHost) {
 }
 
 // Precompiled once; the script runs per response.
-const URL_RE = /^https?:\/\/(\[[^\]]+\]|[^/?#:]+)(?::(\d+))?(\/[^?#]*)?(\?[^#]*)?/i;
+const URL_RE =
+  /^https?:\/\/(\[[^\]]+\]|[^/?#:]+)(?::(\d+))?(\/[^?#]*)?(\?[^#]*)?/i;
 const PREFIX_RE = /^https?:\/\/[^/]+\//i;
 const SIGNED_RE = /[?&]upsig=/;
 const AKAM_QUERY_RE = /[?&](?:os=akam(?:&|$)|hdnts=)/;
@@ -84,12 +85,25 @@ const PCDN_HOST_RE =
 const HK_HOST_RE = /^cn-hk-[a-z0-9-]+\.bilivideo\.com$/;
 const BCACHE_HOST_RE = /^cn-[a-z0-9]+-[a-z0-9]+-[a-z0-9-]+\.bilivideo\.com$/;
 const UPOS_OV_HOST_RE = /^upos-[a-z0-9]+-mirror[a-z0-9]*ov\.bilivideo\.com$/;
-const UPOS_HOST_RE = /^upos-[a-z0-9]+-(?:mirror|estg)[a-z0-9]*\.bilivideo\.com$/;
+const UPOS_HOST_RE =
+  /^upos-[a-z0-9]+-(?:mirror|estg)[a-z0-9]*\.bilivideo\.com$/;
 
 const OVERSEAS_KINDS = new Set(["upos-ov", "akamai", "bcache-hk", "bstar"]);
-const MAINLAND_KINDS = new Set(["upos", "bcache", "mcdn", "mcdn-resource", "pcdn"]);
+const MAINLAND_KINDS = new Set([
+  "upos",
+  "bcache",
+  "mcdn",
+  "mcdn-resource",
+  "pcdn",
+]);
 const PCDN_KINDS = new Set(["mcdn", "mcdn-resource", "pcdn"]);
-const REGULAR_KINDS = new Set(["upos", "upos-ov", "bcache", "bcache-hk", "target"]);
+const REGULAR_KINDS = new Set([
+  "upos",
+  "upos-ov",
+  "bcache",
+  "bcache-hk",
+  "target",
+]);
 const SKIP_KINDS = new Set(["target", "tf", "live"]);
 // Lower rank wins when a stream needs a host-swappable template.
 const TEMPLATE_RANK = {
@@ -120,10 +134,16 @@ function classifyHost(host, port, path, query) {
   if (path.startsWith("/live-bvc/") || host.includes("gotcha")) return "live";
   if (TF_HOST_RE.test(host)) return "tf";
   if (host.includes("bstar")) return "bstar";
-  if (host.endsWith(".akamaized.net") || AKAM_QUERY_RE.test(query)) return "akamai";
+  if (host.endsWith(".akamaized.net") || AKAM_QUERY_RE.test(query))
+    return "akamai";
   if (path.startsWith("/v1/resource/")) return "mcdn-resource";
-  if (MCDN_HOST_RE.test(host)) return port === "8082" || port === "8000" ? "mcdn-resource" : "mcdn";
-  if (PCDN_HOST_RE.test(host) || PCDN_QUERY_RE.test(query) || (port && port !== "80" && port !== "443")) {
+  if (MCDN_HOST_RE.test(host))
+    return port === "8082" || port === "8000" ? "mcdn-resource" : "mcdn";
+  if (
+    PCDN_HOST_RE.test(host) ||
+    PCDN_QUERY_RE.test(query) ||
+    (port && port !== "80" && port !== "443")
+  ) {
     return "pcdn";
   }
   if (HK_HOST_RE.test(host)) return "bcache-hk";
@@ -185,10 +205,18 @@ function main() {
     "cn-hk-eq-01-13.bilivideo.com",
   );
 
-  const mode = MODES.get(String(args.mode ?? "all").trim().toLowerCase()) || "all";
+  const mode =
+    MODES.get(
+      String(args.mode ?? "all")
+        .trim()
+        .toLowerCase(),
+    ) || "all";
   const primaryPrefix = `https://${targetCdn}/`;
   const backupPrefix = `https://${backupTargetCdn}/`;
-  const targetHosts = new Set([targetCdn.toLowerCase(), backupTargetCdn.toLowerCase()]);
+  const targetHosts = new Set([
+    targetCdn.toLowerCase(),
+    backupTargetCdn.toLowerCase(),
+  ]);
 
   // Classify each url once; fields repeat the same urls.
   const inspected = new Map();
@@ -202,7 +230,9 @@ function main() {
       const host = m[1].toLowerCase();
       const query = m[4] || "";
       info = {
-        kind: targetHosts.has(host) ? "target" : classifyHost(host, m[2] || "", m[3] || "/", query),
+        kind: targetHosts.has(host)
+          ? "target"
+          : classifyHost(host, m[2] || "", m[3] || "/", query),
         signed: SIGNED_RE.test(query),
       };
     }
@@ -251,7 +281,10 @@ function main() {
   }
   // pgc v2 nests media under video_info.
   const videoInfo = payloadContainer.video_info;
-  const dataContainer = videoInfo && (videoInfo.dash || videoInfo.durl) ? videoInfo : payloadContainer;
+  const dataContainer =
+    videoInfo && (videoInfo.dash || videoInfo.durl)
+      ? videoInfo
+      : payloadContainer;
 
   // Decide once per response whether to redirect.
   let overseas = false;
@@ -264,8 +297,11 @@ function main() {
     }
   }
   const assignment = overseas ? "overseas" : mainland ? "mainland" : "unknown";
-  const redirect = mode === "all" || (mode === "overseas" && assignment === "overseas");
-  logger.info(`模式 ${mode}，分配 ${assignment}，${redirect ? "改写到指定节点" : "仅替换 PCDN 主链路"}`);
+  const redirect =
+    mode === "all" || (mode === "overseas" && assignment === "overseas");
+  logger.info(
+    `模式 ${mode}，分配 ${assignment}，${redirect ? "改写到指定节点" : "仅替换 PCDN 主链路"}`,
+  );
 
   // Best signed url whose host can be swapped.
   const templateOf = (urls) => {
@@ -284,7 +320,8 @@ function main() {
   const retarget = (url, prefix, template) => {
     const { kind, signed } = inspect(url);
     if (SKIP_KINDS.has(kind)) return url;
-    if (kind === "mcdn-resource") return template ? template.replace(PREFIX_RE, prefix) : url;
+    if (kind === "mcdn-resource")
+      return template ? template.replace(PREFIX_RE, prefix) : url;
     if (kind === "unknown" && !signed) return url;
     return url.replace(PREFIX_RE, prefix);
   };
@@ -294,7 +331,8 @@ function main() {
     const urls = urlsOf(stream);
     if (urls.length === 0) return;
     const template = templateOf(urls);
-    const regular = urls.find((url) => REGULAR_KINDS.has(inspect(url).kind)) || null;
+    const regular =
+      urls.find((url) => REGULAR_KINDS.has(inspect(url).kind)) || null;
     const seen = new Set();
 
     if (!redirect) {
@@ -302,10 +340,16 @@ function main() {
       if (!regular) return;
       for (const field of PRIMARY_FIELDS) {
         const original = stream[field];
-        if (typeof original !== "string" || !PCDN_KINDS.has(inspect(original).kind)) continue;
+        if (
+          typeof original !== "string" ||
+          !PCDN_KINDS.has(inspect(original).kind)
+        )
+          continue;
         stream[field] = regular;
         for (const list of BACKUP_FIELDS) {
-          const i = Array.isArray(stream[list]) ? stream[list].indexOf(regular) : -1;
+          const i = Array.isArray(stream[list])
+            ? stream[list].indexOf(regular)
+            : -1;
           if (i >= 0) stream[list][i] = original;
         }
         if (!seen.has(original)) {
@@ -349,7 +393,8 @@ function main() {
       if (regular && !list.includes(regular)) list.push(regular);
     }
     if (regular && primaryChanged && !hasBackupList) {
-      stream[typeof stream.baseUrl === "string" ? "backupUrl" : "backup_url"] = [regular];
+      stream[typeof stream.baseUrl === "string" ? "backupUrl" : "backup_url"] =
+        [regular];
     }
   };
 
@@ -533,7 +578,10 @@ function main() {
   }
 
   const totalChanges =
-    stats.replacedUrls + stats.backupUrls + stats.promotedUrls + stats.filteredRemoved;
+    stats.replacedUrls +
+    stats.backupUrls +
+    stats.promotedUrls +
+    stats.filteredRemoved;
 
   // Mark modified support_formats entries.
   if (
