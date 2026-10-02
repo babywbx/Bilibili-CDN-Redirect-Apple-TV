@@ -71,6 +71,93 @@ function normalizeHost(host, fallbackHost) {
   return candidate.replace(/^https?:\/\//i, "").replace(/\/+$/g, "");
 }
 
+// Precompiled once; the script runs per response.
+const URL_RE = /^https?:\/\/(\[[^\]]+\]|[^/?#:]+)(?::(\d+))?(\/[^?#]*)?(\?[^#]*)?/i;
+const PREFIX_RE = /^https?:\/\/[^/]+\//i;
+const SIGNED_RE = /[?&]upsig=/;
+const AKAM_QUERY_RE = /[?&](?:os=akam(?:&|$)|hdnts=)/;
+const PCDN_QUERY_RE = /[?&](?:os=mcdn(?:&|$)|mcdnid=|xy_usource=)/;
+const TF_HOST_RE = /^(?:upos|proxy)-tf-all-/;
+const MCDN_HOST_RE = /\.mcdn\.bilivideo\.(?:cn|com)$/;
+const PCDN_HOST_RE =
+  /\.(?:edge\.mountaintoys\.cn|szbdyd\.com|nexusedgeio\.com|ahdohpiechei\.com)$|^upos-[a-z0-9-]*302|^\d+\.\d+\.\d+\.\d+$|^\[/;
+const HK_HOST_RE = /^cn-hk-[a-z0-9-]+\.bilivideo\.com$/;
+const BCACHE_HOST_RE = /^cn-[a-z0-9]+-[a-z0-9]+-[a-z0-9-]+\.bilivideo\.com$/;
+const UPOS_OV_HOST_RE = /^upos-[a-z0-9]+-mirror[a-z0-9]*ov\.bilivideo\.com$/;
+const UPOS_HOST_RE = /^upos-[a-z0-9]+-(?:mirror|estg)[a-z0-9]*\.bilivideo\.com$/;
+
+const OVERSEAS_KINDS = new Set(["upos-ov", "akamai", "bcache-hk", "bstar"]);
+const MAINLAND_KINDS = new Set(["upos", "bcache", "mcdn", "mcdn-resource", "pcdn"]);
+const PCDN_KINDS = new Set(["mcdn", "mcdn-resource", "pcdn"]);
+const REGULAR_KINDS = new Set(["upos", "upos-ov", "bcache", "bcache-hk", "target"]);
+const SKIP_KINDS = new Set(["target", "tf", "live"]);
+// Lower rank wins when a stream needs a host-swappable template.
+const TEMPLATE_RANK = {
+  upos: 0,
+  target: 1,
+  "upos-ov": 2,
+  "bcache-hk": 3,
+  bcache: 4,
+  pcdn: 5,
+  mcdn: 6,
+  bstar: 7,
+  akamai: 8,
+  unknown: 9,
+};
+const MODES = new Map([
+  ["all", "all"],
+  ["0", "all"],
+  ["overseas", "overseas"],
+  ["1", "overseas"],
+  ["pcdn", "pcdn"],
+  ["2", "pcdn"],
+]);
+const PRIMARY_FIELDS = ["baseUrl", "base_url", "url"];
+const BACKUP_FIELDS = ["backupUrl", "backup_url"];
+
+// Order matters: narrow classes before broad host patterns.
+function classifyHost(host, port, path, query) {
+  if (path.startsWith("/live-bvc/") || host.includes("gotcha")) return "live";
+  if (TF_HOST_RE.test(host)) return "tf";
+  if (host.includes("bstar")) return "bstar";
+  if (host.endsWith(".akamaized.net") || AKAM_QUERY_RE.test(query)) return "akamai";
+  if (path.startsWith("/v1/resource/")) return "mcdn-resource";
+  if (MCDN_HOST_RE.test(host)) return port === "8082" || port === "8000" ? "mcdn-resource" : "mcdn";
+  if (PCDN_HOST_RE.test(host) || PCDN_QUERY_RE.test(query) || (port && port !== "80" && port !== "443")) {
+    return "pcdn";
+  }
+  if (HK_HOST_RE.test(host)) return "bcache-hk";
+  if (BCACHE_HOST_RE.test(host)) return "bcache";
+  if (UPOS_OV_HOST_RE.test(host)) return "upos-ov";
+  if (UPOS_HOST_RE.test(host)) return "upos";
+  return "unknown";
+}
+
+function urlsOf(stream) {
+  const urls = [];
+  for (const field of PRIMARY_FIELDS) {
+    if (typeof stream[field] === "string") urls.push(stream[field]);
+  }
+  for (const field of BACKUP_FIELDS) {
+    const list = stream[field];
+    if (!Array.isArray(list)) continue;
+    for (const url of list) if (typeof url === "string") urls.push(url);
+  }
+  return urls;
+}
+
+function streamsOf(container) {
+  const dash = container.dash;
+  const streams = Array.isArray(container.durl) ? container.durl.slice() : [];
+  if (dash) {
+    if (Array.isArray(dash.video)) streams.push(...dash.video);
+    if (Array.isArray(dash.audio)) streams.push(...dash.audio);
+    if (Array.isArray(dash.dolby?.audio)) streams.push(...dash.dolby.audio);
+    if (dash.flac?.audio) streams.push(dash.flac.audio);
+  }
+  return streams.filter((s) => s && typeof s === "object");
+}
+
 function main() {
   const scriptName = "[Bilibili CDN Redirect for Apple TV]";
   const args = parseArgumentKeyValues();
@@ -98,20 +185,39 @@ function main() {
     "cn-hk-eq-01-13.bilivideo.com",
   );
 
-  // Replace only the hostname prefix.
-  const prefixRegex = /^https?:\/\/[^/]+\//;
-  // MCDN signatures are host-bound; such urls need a template.
-  const mcdnRegex = /^https?:\/\/[^/]*\.mcdn\.bilivideo\.cn(?::\d+)?\//i;
-  const isHttpUrl = (url) => typeof url === "string" && url.startsWith("http");
-  const primaryReplacementPrefix = `https://${targetCdn}/`;
-  const backupReplacementPrefix = `https://${backupTargetCdn}/`;
+  const mode = MODES.get(String(args.mode ?? "all").trim().toLowerCase()) || "all";
+  const primaryPrefix = `https://${targetCdn}/`;
+  const backupPrefix = `https://${backupTargetCdn}/`;
+  const targetHosts = new Set([targetCdn.toLowerCase(), backupTargetCdn.toLowerCase()]);
+
+  // Classify each url once; fields repeat the same urls.
+  const inspected = new Map();
+  const inspect = (url) => {
+    let info = inspected.get(url);
+    if (info) return info;
+    const m = URL_RE.exec(url);
+    if (!m) {
+      info = { kind: "unknown", signed: false };
+    } else {
+      const host = m[1].toLowerCase();
+      const query = m[4] || "";
+      info = {
+        kind: targetHosts.has(host) ? "target" : classifyHost(host, m[2] || "", m[3] || "/", query),
+        signed: SIGNED_RE.test(query),
+      };
+    }
+    inspected.set(url, info);
+    return info;
+  };
 
   // Runtime stats.
-  let stats = {
+  const stats = {
     videoStreams: 0,
     audioStreams: 0,
+    durlStreams: 0,
     replacedUrls: 0,
     backupUrls: 0,
+    promotedUrls: 0,
     filteredRemoved: 0,
   };
   // Selected codec preference.
@@ -134,7 +240,7 @@ function main() {
 
   // Validate payload.
   if (payload?.code !== 0) {
-    logger.debug(`终止：业务返回码 code=${payload.code}`);
+    logger.debug(`终止：业务返回码 code=${payload?.code}`);
     return $done({});
   }
 
@@ -144,61 +250,107 @@ function main() {
     return $done({});
   }
   // pgc v2 nests media under video_info.
-  const dataContainer = payloadContainer.video_info?.dash
-    ? payloadContainer.video_info
-    : payloadContainer;
+  const videoInfo = payloadContainer.video_info;
+  const dataContainer = videoInfo && (videoInfo.dash || videoInfo.durl) ? videoInfo : payloadContainer;
 
-  // Rewrite stream URLs.
-  const replaceUrlPrefix = (url, replacementPrefix, template) => {
-    if (!isHttpUrl(url)) return url;
-    if (mcdnRegex.test(url)) {
-      return template ? template.replace(prefixRegex, replacementPrefix) : url;
+  // Decide once per response whether to redirect.
+  let overseas = false;
+  let mainland = false;
+  for (const stream of streamsOf(dataContainer)) {
+    for (const url of urlsOf(stream)) {
+      const { kind } = inspect(url);
+      if (OVERSEAS_KINDS.has(kind)) overseas = true;
+      else if (MAINLAND_KINDS.has(kind)) mainland = true;
     }
-    return url.replace(prefixRegex, replacementPrefix);
+  }
+  const assignment = overseas ? "overseas" : mainland ? "mainland" : "unknown";
+  const redirect = mode === "all" || (mode === "overseas" && assignment === "overseas");
+  logger.info(`模式 ${mode}，分配 ${assignment}，${redirect ? "改写到指定节点" : "仅替换 PCDN 主链路"}`);
+
+  // Best signed url whose host can be swapped.
+  const templateOf = (urls) => {
+    let best = null;
+    let bestRank = Infinity;
+    for (const url of urls) {
+      const { kind, signed } = inspect(url);
+      const rank = TEMPLATE_RANK[kind];
+      if (!signed || rank === undefined || rank >= bestRank) continue;
+      best = url;
+      bestRank = rank;
+    }
+    return best;
   };
 
-  const replaceStreamUrls = (stream) => {
-    if (!stream) return;
-    const candidates = [
-      stream.baseUrl,
-      stream.base_url,
-      ...(Array.isArray(stream.backupUrl) ? stream.backupUrl : []),
-      ...(Array.isArray(stream.backup_url) ? stream.backup_url : []),
-    ];
-    const template = candidates.find((u) => isHttpUrl(u) && !mcdnRegex.test(u)) || null;
-    const seenPrimaryUrls = new Set();
-    const seenBackupUrls = new Set();
+  const retarget = (url, prefix, template) => {
+    const { kind, signed } = inspect(url);
+    if (SKIP_KINDS.has(kind)) return url;
+    if (kind === "mcdn-resource") return template ? template.replace(PREFIX_RE, prefix) : url;
+    if (kind === "unknown" && !signed) return url;
+    return url.replace(PREFIX_RE, prefix);
+  };
 
-    // Rewrite primary URLs.
-    ["baseUrl", "base_url"].forEach((field) => {
-      if (typeof stream[field] === "string") {
-        const originalUrl = stream[field];
-        const newUrl = replaceUrlPrefix(originalUrl, primaryReplacementPrefix, template);
-        if (newUrl !== originalUrl) {
-          stream[field] = newUrl;
-          if (!seenPrimaryUrls.has(originalUrl)) {
-            seenPrimaryUrls.add(originalUrl);
-            stats.replacedUrls++;
-          }
+  const rewriteStream = (stream) => {
+    if (!stream || typeof stream !== "object") return;
+    const urls = urlsOf(stream);
+    if (urls.length === 0) return;
+    const template = templateOf(urls);
+    const regular = urls.find((url) => REGULAR_KINDS.has(inspect(url).kind)) || null;
+    const seen = new Set();
+
+    if (!redirect) {
+      // Swap a PCDN primary with its first regular sibling.
+      if (!regular) return;
+      for (const field of PRIMARY_FIELDS) {
+        const original = stream[field];
+        if (typeof original !== "string" || !PCDN_KINDS.has(inspect(original).kind)) continue;
+        stream[field] = regular;
+        for (const list of BACKUP_FIELDS) {
+          const i = Array.isArray(stream[list]) ? stream[list].indexOf(regular) : -1;
+          if (i >= 0) stream[list][i] = original;
+        }
+        if (!seen.has(original)) {
+          seen.add(original);
+          stats.promotedUrls++;
         }
       }
-    });
+      return;
+    }
 
-    // Rewrite backup URLs.
-    ["backupUrl", "backup_url"].forEach((field) => {
-      if (Array.isArray(stream[field])) {
-        stream[field].forEach((url, i) => {
-          const newUrl = replaceUrlPrefix(url, backupReplacementPrefix, template);
-          if (newUrl !== url) {
-            stream[field][i] = newUrl;
-            if (!seenBackupUrls.has(url)) {
-              seenBackupUrls.add(url);
-              stats.backupUrls++;
-            }
-          }
-        });
+    for (const field of PRIMARY_FIELDS) {
+      const original = stream[field];
+      if (typeof original !== "string") continue;
+      const next = retarget(original, primaryPrefix, template);
+      if (next === original) continue;
+      stream[field] = next;
+      if (!seen.has(original)) {
+        seen.add(original);
+        stats.replacedUrls++;
       }
-    });
+    }
+    const primaryChanged = seen.size > 0;
+    seen.clear();
+    let hasBackupList = false;
+    for (const field of BACKUP_FIELDS) {
+      const list = stream[field];
+      if (!Array.isArray(list)) continue;
+      hasBackupList = true;
+      for (let i = 0; i < list.length; i++) {
+        const original = list[i];
+        if (typeof original !== "string") continue;
+        const next = retarget(original, backupPrefix, template);
+        if (next === original) continue;
+        list[i] = next;
+        if (!seen.has(original)) {
+          seen.add(original);
+          stats.backupUrls++;
+        }
+      }
+      // Keep one original regular url as the last resort.
+      if (regular && !list.includes(regular)) list.push(regular);
+    }
+    if (regular && primaryChanged && !hasBackupList) {
+      stream[typeof stream.baseUrl === "string" ? "backupUrl" : "backup_url"] = [regular];
+    }
   };
 
   // Process DASH streams.
@@ -303,29 +455,35 @@ function main() {
       }
 
       stats.videoStreams = dash.video.length;
-      dash.video.forEach(replaceStreamUrls);
+      dash.video.forEach(rewriteStream);
     }
 
     if (dash && Array.isArray(dash.audio)) {
       stats.audioStreams = dash.audio.length;
-      dash.audio.forEach(replaceStreamUrls);
+      dash.audio.forEach(rewriteStream);
     }
 
     const dolbyAudio = dash?.dolby?.audio;
     if (Array.isArray(dolbyAudio)) {
       stats.audioStreams += dolbyAudio.length;
-      dolbyAudio.forEach(replaceStreamUrls);
+      dolbyAudio.forEach(rewriteStream);
     }
 
     const flacAudio = dash?.flac?.audio;
     if (flacAudio && typeof flacAudio === "object") {
       stats.audioStreams += 1;
-      replaceStreamUrls(flacAudio);
+      rewriteStream(flacAudio);
     }
 
     logger.debug(
       `检测到 DASH：视频 ${stats.videoStreams}，音频 ${stats.audioStreams}`,
     );
+  }
+
+  if (Array.isArray(dataContainer.durl)) {
+    stats.durlStreams = dataContainer.durl.length;
+    dataContainer.durl.forEach(rewriteStream);
+    logger.debug(`检测到 durl：${stats.durlStreams} 段`);
   }
 
   // Update support_formats after codec filtering.
@@ -374,9 +532,12 @@ function main() {
     }
   }
 
+  const totalChanges =
+    stats.replacedUrls + stats.backupUrls + stats.promotedUrls + stats.filteredRemoved;
+
   // Mark modified support_formats entries.
   if (
-    stats.replacedUrls + stats.backupUrls + stats.filteredRemoved > 0 &&
+    totalChanges > 0 &&
     dataContainer.support_formats &&
     Array.isArray(dataContainer.support_formats)
   ) {
@@ -399,16 +560,20 @@ function main() {
   }
 
   // Finalize the response.
-  const totalChanges =
-    stats.replacedUrls + stats.backupUrls + stats.filteredRemoved;
   if (totalChanges > 0) {
     const filterMsg =
       stats.filteredRemoved > 0
         ? `，保留编码 ${selectedCodecName}，移除 ${stats.filteredRemoved} 条`
         : "";
-    logger.force(
-      `已完成：主链路 ${stats.replacedUrls} 条、备用链路 ${stats.backupUrls} 条${filterMsg}，已重定向至 ${targetCdn}`,
-    );
+    if (redirect) {
+      logger.force(
+        `已完成：主链路 ${stats.replacedUrls} 条、备用链路 ${stats.backupUrls} 条${filterMsg}，已重定向至 ${targetCdn}`,
+      );
+    } else {
+      logger.force(
+        `已完成：模式 ${mode}，保留原节点，${stats.promotedUrls} 条 PCDN 主链路已换成正规节点${filterMsg}`,
+      );
+    }
 
     try {
       $done({ body: JSON.stringify(payload) });

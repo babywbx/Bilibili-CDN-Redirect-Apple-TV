@@ -1,17 +1,18 @@
-#!name=Bilibili CDN Redirect for Apple TV
-#!desc=专为 Apple TV Cheers App 优化的 B 站 CDN 重定向插件，适配 DASH，支持编码偏好与日志控制。
+#!name=📺 哔哩哔哩 CDN 重定向 · Apple TV
+#!desc=把哔哩哔哩的视频播放地址改写到指定 CDN 节点，自动绕开 MCDN 与 PCDN，支持改写模式、编码偏好与日志等级。适用于 Apple TV 上的第三方客户端。
 #!author=Babywbx
 #!homepage=https://github.com/babywbx/Bilibili-CDN-Redirect-Apple-TV
 
 [Argument]
-cdn = select,"cn-hk-eq-01-09.bilivideo.com","cn-hk-eq-01-12.bilivideo.com","cn-hk-eq-01-13.bilivideo.com",tag=主链路 CDN,desc=主链路要替换到的 CDN 主机名（香港等保节点）。
-cdn_backup = select,"cn-hk-eq-01-13.bilivideo.com","cn-hk-eq-01-09.bilivideo.com","cn-hk-eq-01-12.bilivideo.com",tag=备用链路 CDN,desc=备用链路要替换到的 CDN 主机名（香港等保节点）。
-codec = select,"AUTO","AVC","HEVC","AV1",tag=编码偏好,desc=DASH 视频编码偏好。AUTO 表示不筛选编码；AVC 为 H.264，HEVC 为 H.265，AV1 为 AOMedia Video 1。
-log_level = select,"WARN","ERROR","INFO","DEBUG",tag=日志等级,desc=脚本日志输出等级。
-debug = switch,false,true,tag=调试模式,desc=开启后日志等级固定为 DEBUG，排查问题时再开启。
+cdn = select,"cn-hk-eq-01-09.bilivideo.com","cn-hk-eq-01-01.bilivideo.com","cn-hk-eq-01-03.bilivideo.com","cn-hk-eq-01-10.bilivideo.com","cn-hk-eq-01-12.bilivideo.com","cn-hk-eq-01-13.bilivideo.com","cn-hk-eq-01-14.bilivideo.com","upos-sz-mirrorcosov.bilivideo.com","upos-sz-mirroraliov.bilivideo.com",tag=🎯 主链路节点,desc=主链路改写到的 CDN 主机名。cn-hk 开头为香港节点，upos 开头为海外镜像。
+cdn_backup = select,"cn-hk-eq-01-13.bilivideo.com","cn-hk-eq-01-01.bilivideo.com","cn-hk-eq-01-03.bilivideo.com","cn-hk-eq-01-09.bilivideo.com","cn-hk-eq-01-10.bilivideo.com","cn-hk-eq-01-12.bilivideo.com","cn-hk-eq-01-14.bilivideo.com","upos-sz-mirrorcosov.bilivideo.com","upos-sz-mirroraliov.bilivideo.com",tag=🛟 备用链路节点,desc=备用链路改写到的 CDN 主机名，建议与主链路不同。
+mode = select,"all","overseas","pcdn",tag=🧭 改写模式,desc=all：全部改写到指定节点。overseas：仅在分配到海外节点时改写，大陆分配只替换 PCDN。pcdn：不改写节点，只把 MCDN 与 PCDN 主链路换成正规节点。
+codec = select,"AUTO","AVC","HEVC","AV1",tag=🎞️ 编码偏好,desc=AUTO 不筛选编码；AVC 为 H.264，HEVC 为 H.265。
+log_level = select,"WARN","ERROR","INFO","DEBUG",tag=📝 日志等级,desc=脚本日志输出等级。
+debug = switch,false,true,tag=🐞 调试模式,desc=开启后日志固定为 DEBUG，排查完成后请关闭。
 
 [Script]
-http-response ^https?:\/\/api\.bilibili\.com\/(?:x\/player\/(?:wbi\/)?playurl|pgc\/player\/web\/(?:v\d\/)?playurl|pugv\/player\/web\/playurl) script-path=https://raw.githubusercontent.com/babywbx/Bilibili-CDN-Redirect-Apple-TV/main/Bilibili-CDN-Redirect.js, requires-body=true, timeout=10, tag=Bili_CDN_Redirect, argument=[{cdn},{cdn_backup},{codec},{log_level},{debug}]
+http-response ^https?:\/\/api\.bilibili\.com\/(?:x\/player\/(?:wbi\/)?playurl|pgc\/player\/web\/(?:v\d\/)?playurl|pugv\/player\/web\/playurl) script-path=https://raw.githubusercontent.com/babywbx/Bilibili-CDN-Redirect-Apple-TV/main/Bilibili-CDN-Redirect.js, requires-body=true, timeout=10, tag=哔哩哔哩 CDN 重定向, argument=[{cdn},{cdn_backup},{mode},{codec},{log_level},{debug}]
 
 [MITM]
 hostname = api.bilibili.com
