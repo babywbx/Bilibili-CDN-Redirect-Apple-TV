@@ -100,6 +100,9 @@ function main() {
 
   // Replace only the hostname prefix.
   const prefixRegex = /^https?:\/\/[^/]+\//;
+  // MCDN signatures are host-bound; such urls need a template.
+  const mcdnRegex = /^https?:\/\/[^/]*\.mcdn\.bilivideo\.cn(?::\d+)?\//i;
+  const isHttpUrl = (url) => typeof url === "string" && url.startsWith("http");
   const primaryReplacementPrefix = `https://${targetCdn}/`;
   const backupReplacementPrefix = `https://${backupTargetCdn}/`;
 
@@ -135,20 +138,34 @@ function main() {
     return $done({});
   }
 
-  const dataContainer = payload.data || payload.result;
-  if (!dataContainer) {
+  const payloadContainer = payload.data || payload.result;
+  if (!payloadContainer) {
     logger.debug(`终止：未找到 data/result 容器`);
     return $done({});
   }
+  // pgc v2 nests media under video_info.
+  const dataContainer = payloadContainer.video_info?.dash
+    ? payloadContainer.video_info
+    : payloadContainer;
 
   // Rewrite stream URLs.
-  const replaceUrlPrefix = (url, replacementPrefix) => {
-    if (typeof url !== "string" || !url.startsWith("http")) return url;
+  const replaceUrlPrefix = (url, replacementPrefix, template) => {
+    if (!isHttpUrl(url)) return url;
+    if (mcdnRegex.test(url)) {
+      return template ? template.replace(prefixRegex, replacementPrefix) : url;
+    }
     return url.replace(prefixRegex, replacementPrefix);
   };
 
   const replaceStreamUrls = (stream) => {
     if (!stream) return;
+    const candidates = [
+      stream.baseUrl,
+      stream.base_url,
+      ...(Array.isArray(stream.backupUrl) ? stream.backupUrl : []),
+      ...(Array.isArray(stream.backup_url) ? stream.backup_url : []),
+    ];
+    const template = candidates.find((u) => isHttpUrl(u) && !mcdnRegex.test(u)) || null;
     const seenPrimaryUrls = new Set();
     const seenBackupUrls = new Set();
 
@@ -156,7 +173,7 @@ function main() {
     ["baseUrl", "base_url"].forEach((field) => {
       if (typeof stream[field] === "string") {
         const originalUrl = stream[field];
-        const newUrl = replaceUrlPrefix(originalUrl, primaryReplacementPrefix);
+        const newUrl = replaceUrlPrefix(originalUrl, primaryReplacementPrefix, template);
         if (newUrl !== originalUrl) {
           stream[field] = newUrl;
           if (!seenPrimaryUrls.has(originalUrl)) {
@@ -171,7 +188,7 @@ function main() {
     ["backupUrl", "backup_url"].forEach((field) => {
       if (Array.isArray(stream[field])) {
         stream[field].forEach((url, i) => {
-          const newUrl = replaceUrlPrefix(url, backupReplacementPrefix);
+          const newUrl = replaceUrlPrefix(url, backupReplacementPrefix, template);
           if (newUrl !== url) {
             stream[field][i] = newUrl;
             if (!seenBackupUrls.has(url)) {
@@ -292,6 +309,18 @@ function main() {
     if (dash && Array.isArray(dash.audio)) {
       stats.audioStreams = dash.audio.length;
       dash.audio.forEach(replaceStreamUrls);
+    }
+
+    const dolbyAudio = dash?.dolby?.audio;
+    if (Array.isArray(dolbyAudio)) {
+      stats.audioStreams += dolbyAudio.length;
+      dolbyAudio.forEach(replaceStreamUrls);
+    }
+
+    const flacAudio = dash?.flac?.audio;
+    if (flacAudio && typeof flacAudio === "object") {
+      stats.audioStreams += 1;
+      replaceStreamUrls(flacAudio);
     }
 
     logger.debug(
