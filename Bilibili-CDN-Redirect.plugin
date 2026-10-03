@@ -7,12 +7,13 @@
 cdn = select,"cn-hk-eq-01-09.bilivideo.com","cn-hk-eq-01-01.bilivideo.com","cn-hk-eq-01-03.bilivideo.com","cn-hk-eq-01-10.bilivideo.com","cn-hk-eq-01-12.bilivideo.com","cn-hk-eq-01-13.bilivideo.com","cn-hk-eq-01-14.bilivideo.com","upos-sz-mirrorcosov.bilivideo.com","upos-sz-mirroraliov.bilivideo.com",tag=🎯 主链路节点,desc=主链路改写到的 CDN 节点。cn-hk 开头为香港节点，upos 开头为海外镜像。
 cdn_backup = select,"cn-hk-eq-01-13.bilivideo.com","cn-hk-eq-01-01.bilivideo.com","cn-hk-eq-01-03.bilivideo.com","cn-hk-eq-01-09.bilivideo.com","cn-hk-eq-01-10.bilivideo.com","cn-hk-eq-01-12.bilivideo.com","cn-hk-eq-01-14.bilivideo.com","upos-sz-mirrorcosov.bilivideo.com","upos-sz-mirroraliov.bilivideo.com",tag=🔀 备用链路节点,desc=备用链路改写到的 CDN 节点，建议与主链路不同。
 mode = select,"all","overseas","pcdn",tag=🧭 改写模式,desc=all：全部改写到指定节点。overseas：分配到海外节点时改写，否则同 pcdn。pcdn：只把 MCDN 与 PCDN 主链路换成同一条流里的正规地址。
+fallback = switch,true,false,tag=🛟 原始退路,desc=开启时，备用链路末尾保留一条原始正规地址；关闭时，备用链路只保留指定节点。
 codec = select,"AUTO","AVC","HEVC","AV1",tag=🎞️ 编码偏好,desc=AUTO 不筛选编码；AVC 为 H.264，HEVC 为 H.265。
 log_level = select,"WARN","ERROR","INFO","DEBUG",tag=📝 日志等级,desc=脚本日志输出等级。有改动时，🔔 完成摘要始终输出。
 debug = switch,false,true,tag=🐞 调试模式,desc=开启后日志固定为 DEBUG，排查完成后请关闭。
 
 [Script]
-http-response ^https?:\/\/api\.bilibili\.com\/(?:x\/player\/(?:wbi\/)?playurl|pgc\/player\/web\/(?:v\d\/)?playurl|pugv\/player\/web\/playurl) script-path=https://raw.githubusercontent.com/babywbx/Bilibili-CDN-Redirect-Apple-TV/main/Bilibili-CDN-Redirect.js, requires-body=true, timeout=10, tag=哔哩哔哩 CDN 重定向, argument=[{cdn},{cdn_backup},{mode},{codec},{log_level},{debug}]
+http-response ^https?:\/\/api\.bilibili\.com\/(?:x\/player\/(?:wbi\/)?playurl|pgc\/player\/web\/(?:v\d\/)?playurl|pugv\/player\/web\/playurl) script-path=https://raw.githubusercontent.com/babywbx/Bilibili-CDN-Redirect-Apple-TV/main/Bilibili-CDN-Redirect.js, requires-body=true, timeout=10, tag=哔哩哔哩 CDN 重定向, argument=[{cdn},{cdn_backup},{mode},{fallback},{codec},{log_level},{debug}]
 
 [MITM]
 hostname = api.bilibili.com

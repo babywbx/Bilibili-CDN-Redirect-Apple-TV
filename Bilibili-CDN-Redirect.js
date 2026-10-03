@@ -204,6 +204,10 @@ function main() {
         .trim()
         .toLowerCase(),
     ) || "all";
+  const keepFallback = !(
+    args.fallback === false ||
+    /^(?:false|0|off)$/i.test(String(args.fallback ?? "").trim())
+  );
   const primaryPrefix = `https://${targetCdn}/`;
   const backupPrefix = `https://${backupTargetCdn}/`;
   const targetHosts = new Set([
@@ -388,7 +392,8 @@ function main() {
         }
       }
     }
-    if (!regular || (!primaryChanged && seen.size === 0)) return;
+    if (!keepFallback || !regular || (!primaryChanged && seen.size === 0))
+      return;
     for (const field of BACKUP_FIELDS) {
       const list = stream[field];
       if (Array.isArray(list) && !list.includes(regular)) list.push(regular);

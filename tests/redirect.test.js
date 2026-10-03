@@ -190,6 +190,22 @@ describe("mode all", () => {
     assert.deepEqual(run(mainland(), withMode("__proto__")), out);
   });
 
+  it("drops the fallback when fallback=false or the Loon switch is off", () => {
+    for (const argument of [
+      `${ARGS}&fallback=false`,
+      `${ARGS}&fallback=0`,
+      { cdn: A, cdn_backup: B, fallback: false, log_level: "ERROR" },
+    ]) {
+      const out = run(mainland(), argument);
+      assert.equal(out.data.dash.video[0].baseUrl, url(A));
+      assert.deepEqual(out.data.dash.video[0].backupUrl, [
+        url(B, PCDN_SEG),
+        url(B),
+      ]);
+      assert.deepEqual(out.data.dash.video[1].backupUrl, [url(B, HEVC_SEG)]);
+    }
+  });
+
   it("logs the target node", () => {
     const { logs } = invoke(mainland(), ARGS);
     assert.ok(

@@ -73,6 +73,7 @@ it("passes all client arguments to the script using matching names and defaults"
     cdn: "cn-hk-eq-01-09.bilivideo.com",
     cdn_backup: "cn-hk-eq-01-13.bilivideo.com",
     mode: "all",
+    fallback: "true",
     codec: "AUTO",
     log_level: "WARN",
     debug: "false",
