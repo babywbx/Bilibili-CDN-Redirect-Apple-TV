@@ -1,0 +1,125 @@
+name: 缺陷报告 / Bug report
+description: 改写没有生效或播放出错 / The rewrite does not take effect or playback fails
+labels: ["bug"]
+assignees: ["babywbx"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先移除 `access_key`、Cookie、带签名的播放地址、IP 地址、CA 证书与 `ca-p12` 再提交。
+        Remove `access_key`, cookies, signed playback URLs, IP addresses, CA certificates and `ca-p12` before submitting.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 提交前确认 / Before submitting
+      options:
+        - label: 我搜索过现有 issue，没有重复 / I searched the existing issues and found no duplicate
+          required: true
+        - label: 我已按 README 的故障排查逐项检查 / I went through the troubleshooting section of the README
+          required: true
+        - label: 模块或插件已更新到最新版本 / The module or plugin is updated to the latest version
+          required: true
+        - label: 已关闭 Cheers 设置里的「优化播放链接」 / "优化播放链接" is turned off in the Cheers settings
+          required: true
+
+  - type: dropdown
+    id: setup
+    attributes:
+      label: 部署方式 / Setup
+      options:
+        - 方式一：Surge tvOS / Method 1, Surge tvOS
+        - 方式二：Loon tvOS / Method 2, Loon tvOS
+        - 方式三：Surge Mac 网关 / Method 3, Surge Mac gateway
+        - 其他 / Other
+    validations:
+      required: true
+
+  - type: input
+    id: client-version
+    attributes:
+      label: 代理客户端版本 / Proxy client version
+      description: 在 Surge 或 Loon 的「关于」页面查看 / See the About page in Surge or Loon
+    validations:
+      required: true
+
+  - type: input
+    id: tvos-version
+    attributes:
+      label: tvOS 版本 / tvOS version
+      description: 在 Apple TV 的「设置 › 通用 › 关于」查看 / See Settings › General › About on Apple TV
+    validations:
+      required: true
+
+  - type: input
+    id: cheers-version
+    attributes:
+      label: Cheers 版本 / Cheers version
+    validations:
+      required: true
+
+  - type: dropdown
+    id: region
+    attributes:
+      label: 网络环境 / Network
+      description: 选填，用于判断 B 站分配的是海外还是大陆节点 / Optional, helps tell whether Bilibili assigns overseas or mainland nodes
+      options:
+        - 中国大陆 / Mainland China
+        - 中国大陆以外 / Outside mainland China
+
+  - type: dropdown
+    id: content
+    attributes:
+      label: 视频类型 / Content type
+      multiple: true
+      options:
+        - 普通视频 / Regular videos
+        - 番剧与影视 / Anime, films and series
+        - 课程 / Courses
+        - 不确定 / Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: arguments
+    attributes:
+      label: 模块参数 / Module arguments
+      description: 当前填写或选择的参数，没改过的可以不填 / Current argument values, leave out the ones you did not change
+      render: text
+      placeholder: |
+        cdn = cn-hk-eq-01-09.bilivideo.com
+        cdnBackup = cn-hk-eq-01-13.bilivideo.com
+        mode = all
+        fallback = true
+        codec = AUTO
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤 / Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果与实际结果 / Expected versus actual
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 脚本日志 / Script logs
+      description: 把日志等级设为 DEBUG 后复现一次，附上这个脚本的日志。脚本日志只记录模式、节点与改写数量，不含账号信息 / Set the log level to DEBUG, reproduce once and attach this script's log. It only records the mode, nodes and counts, with no account data
+      render: text
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 补充信息 / Anything else
+      description: 其他有助于排查的信息，例如截图 / Anything else that helps, such as screenshots

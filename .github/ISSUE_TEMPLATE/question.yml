@@ -1,0 +1,45 @@
+name: 使用咨询 / Question
+description: 部署或使用中遇到的疑问 / Questions about setup or usage
+labels: ["question"]
+assignees: ["babywbx"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请勿粘贴 CA 证书、`ca-p12`、IP 地址或带 `access_key` 的地址。
+        Never paste CA certificates, `ca-p12`, IP addresses or URLs that contain `access_key`.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 提交前确认 / Before submitting
+      options:
+        - label: 我搜索过现有 issue，没有重复 / I searched the existing issues and found no duplicate
+          required: true
+        - label: 我看过 README 的故障排查与常见问题 / I read the troubleshooting and FAQ sections of the README
+          required: true
+
+  - type: dropdown
+    id: setup
+    attributes:
+      label: 部署方式 / Setup
+      options:
+        - 还没有部署 / Not set up yet
+        - 方式一：Surge tvOS / Method 1, Surge tvOS
+        - 方式二：Loon tvOS / Method 2, Loon tvOS
+        - 方式三：Surge Mac 网关 / Method 3, Surge Mac gateway
+        - 其他 / Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: 你的问题 / Your question
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: 已经尝试过的做法 / What you have tried
