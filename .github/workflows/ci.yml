@@ -23,6 +23,11 @@ env:
   PNPM_VERSION: "12.8.1"
   OXLINT_VERSION: "1.86.0"
   PRETTIER_VERSION: "3.9.9"
+  PYTHON_VERSION: "3.14"
+  RUFF_VERSION: "0.16.10"
+  RUFF_TARGET: "py39"
+  RUFF_SELECT: "E,F,I,UP,B,SIM,RUF"
+  RUFF_IGNORE: "E501,RUF001,RUF002,RUF003"
 
 jobs:
   format:
@@ -44,12 +49,24 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Check formatting
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: false
+
+      - name: Check JavaScript and YAML formatting
         run: |
           pnpm dlx prettier@${{ env.PRETTIER_VERSION }} --check \
             Bilibili-CDN-Redirect.js \
             "tests/**/*.js" \
             ".github/workflows/*.yml"
+
+      - name: Check Python formatting
+        run: |
+          uvx ruff@${{ env.RUFF_VERSION }} format --check \
+            --target-version ${{ env.RUFF_TARGET }} \
+            .
 
   lint:
     name: Quality / Lint
@@ -70,11 +87,25 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: false
+
       - name: Run oxlint
         run: |
           pnpm dlx oxlint@${{ env.OXLINT_VERSION }} \
             Bilibili-CDN-Redirect.js \
             tests
+
+      - name: Run Ruff
+        run: |
+          uvx ruff@${{ env.RUFF_VERSION }} check \
+            --target-version ${{ env.RUFF_TARGET }} \
+            --select ${{ env.RUFF_SELECT }} \
+            --ignore ${{ env.RUFF_IGNORE }} \
+            .
 
   test:
     name: Test / Node
@@ -95,3 +126,21 @@ jobs:
 
       - name: Run tests
         run: node --test
+
+  test-python:
+    name: Test / Python
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: false
+
+      - name: Run certificate tests
+        run: uv run python -B -m unittest discover -s tests -p 'test_*.py'
