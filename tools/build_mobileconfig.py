@@ -4,12 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import plistlib
+import re
+import ssl
 import sys
 import uuid
 from pathlib import Path
-import base64
-
 
 DEFAULT_CERT_NAME = "Babywbx Root CA"
 DEFAULT_PROFILE_NAME = "Babywbx Root CA"
@@ -22,16 +23,31 @@ DEFAULT_PAYLOAD_ID = "com.babywbx.rootca.cert"
 
 def load_certificate_bytes(cert_path: Path) -> bytes:
     raw = cert_path.read_bytes()
-    if b"-----BEGIN CERTIFICATE-----" not in raw:
-        return raw
+    if raw.lstrip().startswith(b"-----"):
+        match = re.fullmatch(
+            rb"\s*-----BEGIN CERTIFICATE-----([A-Za-z0-9+/=\s]+)"
+            rb"-----END CERTIFICATE-----\s*",
+            raw,
+        )
+        if not match:
+            raise ValueError(
+                "Expected one public certificate PEM block, without keys or other data."
+            )
+        raw = base64.b64decode(b"".join(match[1].split()), validate=True)
 
-    pem_text = raw.decode("utf-8")
-    body = "".join(
-        line.strip()
-        for line in pem_text.splitlines()
-        if line and not line.startswith("-----")
-    )
-    return base64.b64decode(body)
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    try:
+        context.load_verify_locations(cadata=raw)
+    except (ssl.SSLError, ValueError) as error:
+        raise ValueError(
+            "Expected a root CA certificate in PEM or DER format."
+        ) from error
+    if context.get_ca_certs(binary_form=True) != [raw]:
+        raise ValueError("Expected exactly one CA certificate, without trailing data.")
+    certificate = context.get_ca_certs()[0]
+    if certificate["subject"] != certificate["issuer"]:
+        raise ValueError("Expected a self-issued root CA certificate.")
+    return raw
 
 
 def build_profile(cert_path: Path) -> dict[str, object]:
@@ -93,9 +109,15 @@ def main() -> int:
         else cert_path.with_suffix(".mobileconfig")
     )
 
-    profile_payload = build_profile(cert_path)
-    plist_bytes = plistlib.dumps(profile_payload, fmt=plistlib.FMT_XML, sort_keys=False)
-    output_path.write_bytes(plist_bytes)
+    try:
+        profile_payload = build_profile(cert_path)
+        plist_bytes = plistlib.dumps(
+            profile_payload, fmt=plistlib.FMT_XML, sort_keys=False
+        )
+        output_path.write_bytes(plist_bytes)
+    except (OSError, ValueError) as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
 
     print(f"Generated: {output_path}")
     print(f"Profile name: {DEFAULT_PROFILE_NAME}")
