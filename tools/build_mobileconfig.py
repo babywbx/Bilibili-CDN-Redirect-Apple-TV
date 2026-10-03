@@ -55,7 +55,6 @@ def build_profile(cert_path: Path) -> dict[str, object]:
         "PayloadDisplayName": DEFAULT_PROFILE_NAME,
         "PayloadIdentifier": DEFAULT_PROFILE_ID,
         "PayloadOrganization": DEFAULT_ORGANIZATION,
-        "PayloadRemovalDisallowed": False,
         "PayloadType": "Configuration",
         "PayloadUUID": str(uuid.uuid4()).upper(),
         "PayloadVersion": 1,
