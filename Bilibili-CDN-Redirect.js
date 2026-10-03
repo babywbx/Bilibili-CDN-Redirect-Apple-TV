@@ -97,18 +97,11 @@ const MAINLAND_KINDS = new Set([
   "pcdn",
 ]);
 const PCDN_KINDS = new Set(["mcdn", "mcdn-resource", "pcdn"]);
-const REGULAR_KINDS = new Set([
-  "upos",
-  "upos-ov",
-  "bcache",
-  "bcache-hk",
-  "target",
-]);
-const SKIP_KINDS = new Set(["target", "tf", "live"]);
+const REGULAR_KINDS = new Set(["upos", "upos-ov", "bcache", "bcache-hk"]);
+const SKIP_KINDS = new Set(["tf", "live"]);
 // Lower rank wins when a stream needs a host-swappable template.
 const TEMPLATE_RANK = {
   upos: 0,
-  target: 1,
   "upos-ov": 2,
   "bcache-hk": 3,
   bcache: 4,
@@ -230,9 +223,8 @@ function main() {
       const host = m[1].toLowerCase();
       const query = m[4] || "";
       info = {
-        kind: targetHosts.has(host)
-          ? "target"
-          : classifyHost(host, m[2] || "", m[3] || "/", query),
+        kind: classifyHost(host, m[2] || "", m[3] || "/", query),
+        target: targetHosts.has(host),
         signed: SIGNED_RE.test(query),
       };
     }
@@ -318,11 +310,11 @@ function main() {
   };
 
   const retarget = (url, prefix, template) => {
-    const { kind, signed } = inspect(url);
+    const { kind, signed, target } = inspect(url);
     if (SKIP_KINDS.has(kind)) return url;
     if (kind === "mcdn-resource")
       return template ? template.replace(PREFIX_RE, prefix) : url;
-    if (kind === "unknown" && !signed) return url;
+    if (kind === "unknown" && !signed && !target) return url;
     return url.replace(PREFIX_RE, prefix);
   };
 
@@ -331,8 +323,16 @@ function main() {
     const urls = urlsOf(stream);
     if (urls.length === 0) return;
     const template = templateOf(urls);
+    const regularUrls = urls.filter((url) => {
+      const { kind, target } = inspect(url);
+      return (
+        REGULAR_KINDS.has(kind) || (redirect && kind === "unknown" && target)
+      );
+    });
     const regular =
-      urls.find((url) => REGULAR_KINDS.has(inspect(url).kind)) || null;
+      (redirect && regularUrls.find((url) => !inspect(url).target)) ||
+      regularUrls[0] ||
+      null;
     const seen = new Set();
 
     if (!redirect) {
@@ -373,11 +373,9 @@ function main() {
     }
     const primaryChanged = seen.size > 0;
     seen.clear();
-    let hasBackupList = false;
     for (const field of BACKUP_FIELDS) {
       const list = stream[field];
       if (!Array.isArray(list)) continue;
-      hasBackupList = true;
       for (let i = 0; i < list.length; i++) {
         const original = list[i];
         if (typeof original !== "string") continue;
@@ -389,12 +387,16 @@ function main() {
           stats.backupUrls++;
         }
       }
-      // Keep one original regular url as the last resort.
-      if (regular && !list.includes(regular)) list.push(regular);
     }
-    if (regular && primaryChanged && !hasBackupList) {
-      stream[typeof stream.baseUrl === "string" ? "backupUrl" : "backup_url"] =
-        [regular];
+    if (!regular || (!primaryChanged && seen.size === 0)) return;
+    for (const field of BACKUP_FIELDS) {
+      const list = stream[field];
+      if (Array.isArray(list) && !list.includes(regular)) list.push(regular);
+    }
+    for (const field of PRIMARY_FIELDS) {
+      if (typeof stream[field] !== "string") continue;
+      const backupField = field === "baseUrl" ? "backupUrl" : "backup_url";
+      if (!Array.isArray(stream[backupField])) stream[backupField] = [regular];
     }
   };
 

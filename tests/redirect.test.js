@@ -11,15 +11,17 @@ const script = new vm.Script(fs.readFileSync(SCRIPT_PATH, "utf8"), {
 
 function invoke(body, argument) {
   const logs = [];
-  let result;
+  const results = [];
   script.runInNewContext({
     console: { log: (line) => logs.push(String(line)) },
     $argument: argument,
     $response: { body: typeof body === "string" ? body : JSON.stringify(body) },
     $done: (value) => {
-      result = value;
+      results.push(value);
     },
   });
+  assert.equal(results.length, 1, "$done must be called exactly once");
+  const [result] = results;
   return { result, logs };
 }
 
@@ -36,6 +38,11 @@ const withMode = (mode) => `${ARGS}&mode=${mode}`;
 const SEG = "/upgcxcode/1/2/3/3-1-30112.m4s?e=1&upsig=x";
 const MCDN_SEG =
   "/v1/resource/upgcxcode/1/2/3/3-1-30112.m4s?e=1&mcdnid=9&upsig=y";
+const PCDN_SEG = "/upgcxcode/1/2/3/3-1-30112.m4s?e=2&upsig=pcdn";
+const HEVC_SEG = "/upgcxcode/1/2/3/3-1-30080.m4s?e=3&upsig=hevc";
+const AUDIO_SEG = "/upgcxcode/1/2/3/3-1-30280.m4s?e=4&upsig=audio";
+const DOLBY_SEG = "/upgcxcode/1/2/3/3-1-30250.m4s?e=5&upsig=dolby";
+const FLAC_SEG = "/upgcxcode/1/2/3/3-1-30251.m4s?e=6&upsig=flac";
 const AKAM_SEG = `${SEG}&os=akam&hdnts=exp`;
 const url = (host, p = SEG) => `https://${host}${p}`;
 const stream = (base, backups, codecid = 7, id = 80) => ({
@@ -48,10 +55,10 @@ const stream = (base, backups, codecid = 7, id = 80) => ({
 });
 
 const MCDN = url("xy1x2x3x4xy.mcdn.bilivideo.cn:8082", MCDN_SEG);
-const PCDN = url("b-x.edge.mountaintoys.cn:4483");
+const PCDN = url("b-x.edge.mountaintoys.cn:4483", PCDN_SEG);
 const COS = url("upos-sz-mirrorcos.bilivideo.com");
 const HW = url("upos-sz-mirrorhw.bilivideo.com");
-const ESTG = url("upos-sz-estgoss.bilivideo.com");
+const ESTG = url("upos-sz-estgoss.bilivideo.com", HEVC_SEG);
 const ALIOV = url("upos-sz-mirroraliov.bilivideo.com");
 const AKAM = url("upos-hz-mirrorakam.akamaized.net", AKAM_SEG);
 
@@ -59,17 +66,46 @@ const mainland = () => ({
   code: 0,
   data: {
     dash: {
-      video: [stream(MCDN, [PCDN, COS], 7, 112), stream(ESTG, [HW], 12, 112)],
+      video: [
+        stream(MCDN, [PCDN, COS], 7, 112),
+        stream(
+          ESTG,
+          [url("upos-sz-mirrorhw.bilivideo.com", HEVC_SEG)],
+          12,
+          112,
+        ),
+      ],
       audio: [
         stream(
-          url("xy5x6x7x8xy.mcdn.bilivideo.cn:8082", MCDN_SEG),
-          [url("upos-sz-mirrorcoso1.bilivideo.com")],
+          url(
+            "xy5x6x7x8xy.mcdn.bilivideo.cn:8082",
+            "/v1/resource/upgcxcode/1/2/3/3-1-30280.m4s?e=4&mcdnid=10&upsig=audio-mcdn",
+          ),
+          [url("upos-sz-mirrorcoso1.bilivideo.com", AUDIO_SEG)],
           0,
           30280,
         ),
       ],
-      dolby: { type: 1, audio: [stream(COS, [HW], 0, 30250)] },
-      flac: { display: true, audio: stream(COS, [HW], 0, 30251) },
+      dolby: {
+        type: 1,
+        audio: [
+          stream(
+            url("upos-sz-mirrorcos.bilivideo.com", DOLBY_SEG),
+            [url("upos-sz-mirrorhw.bilivideo.com", DOLBY_SEG)],
+            0,
+            30250,
+          ),
+        ],
+      },
+      flac: {
+        display: true,
+        audio: stream(
+          url("upos-sz-mirrorcos.bilivideo.com", FLAC_SEG),
+          [url("upos-sz-mirrorhw.bilivideo.com", FLAC_SEG)],
+          0,
+          30251,
+        ),
+      },
     },
     support_formats: [
       {
@@ -96,16 +132,47 @@ describe("mode all", () => {
   });
 
   it("retargets backups and keeps the original regular url last", () => {
-    assert.deepEqual(out.data.dash.video[0].backupUrl, [url(B), url(B), COS]);
-    assert.deepEqual(out.data.dash.video[0].backup_url, [url(B), url(B), COS]);
-    assert.deepEqual(out.data.dash.video[1].backupUrl, [url(B), ESTG]);
+    assert.deepEqual(out.data.dash.video[0].backupUrl, [
+      url(B, PCDN_SEG),
+      url(B),
+      COS,
+    ]);
+    assert.deepEqual(out.data.dash.video[0].backup_url, [
+      url(B, PCDN_SEG),
+      url(B),
+      COS,
+    ]);
+    assert.deepEqual(out.data.dash.video[1].backupUrl, [
+      url(B, HEVC_SEG),
+      ESTG,
+    ]);
+  });
+
+  it("honors target roles and keeps an independent source when a primary matches either target", () => {
+    const primary = "cn-hk-eq-01-09.bilivideo.com";
+    const backup = "cn-hk-eq-01-13.bilivideo.com";
+    const body = {
+      code: 0,
+      data: {
+        dash: {
+          video: [stream(url(primary), [COS]), stream(url(backup), [COS])],
+        },
+      },
+    };
+    for (const item of run(body, "log_level=ERROR").data.dash.video) {
+      assert.equal(item.baseUrl, url(primary));
+      assert.equal(item.base_url, url(primary));
+      assert.deepEqual(item.backupUrl, [url(backup), COS]);
+      assert.deepEqual(item.backup_url, [url(backup), COS]);
+    }
   });
 
   it("covers audio, dolby and flac streams", () => {
-    assert.equal(out.data.dash.audio[0].base_url, url(A));
-    assert.equal(out.data.dash.dolby.audio[0].baseUrl, url(A));
-    assert.equal(out.data.dash.flac.audio.baseUrl, url(A));
-    assert.equal(out.data.dash.flac.audio.backupUrl[0], url(B));
+    assert.equal(out.data.dash.video[1].baseUrl, url(A, HEVC_SEG));
+    assert.equal(out.data.dash.audio[0].base_url, url(A, AUDIO_SEG));
+    assert.equal(out.data.dash.dolby.audio[0].baseUrl, url(A, DOLBY_SEG));
+    assert.equal(out.data.dash.flac.audio.baseUrl, url(A, FLAC_SEG));
+    assert.equal(out.data.dash.flac.audio.backupUrl[0], url(B, FLAC_SEG));
   });
 
   it("keeps every codec and marks the quality descriptions", () => {
@@ -134,6 +201,19 @@ describe("mode all", () => {
 });
 
 describe("mode overseas and pcdn on a mainland assignment", () => {
+  it("promotes the same regular sibling regardless of unused target settings", () => {
+    const hk = "cn-hk-eq-01-09.bilivideo.com";
+    const body = {
+      code: 0,
+      data: { dash: { video: [stream(MCDN, [url(hk), COS])] } },
+    };
+    for (const cdn of [hk, A]) {
+      const out = run(body, `cdn=${cdn}&mode=pcdn`).data.dash.video[0];
+      assert.equal(out.baseUrl, url(hk));
+      assert.deepEqual(out.backupUrl, [MCDN, COS]);
+    }
+  });
+
   for (const mode of ["overseas", "1", "pcdn", "2"]) {
     it(`mode=${mode} swaps pcdn primaries with a regular sibling and nothing else`, () => {
       const out = run(mainland(), withMode(mode));
@@ -161,6 +241,24 @@ describe("mode overseas and pcdn on a mainland assignment", () => {
 });
 
 describe("overseas assignment", () => {
+  it("keeps source classification independent of the selected targets", () => {
+    const hk = "cn-hk-eq-01-09.bilivideo.com";
+    const body = {
+      code: 0,
+      data: { dash: { video: [stream(url(hk), [COS])] } },
+    };
+    for (const cdn of [hk, A]) {
+      const { result, logs } = invoke(
+        body,
+        `cdn=${cdn}&cdn_backup=${B}&mode=overseas&log_level=INFO`,
+      );
+      const out = JSON.parse(result.body).data.dash.video[0];
+      assert.equal(out.baseUrl, url(cdn));
+      assert.equal(out.backupUrl[0], url(B));
+      assert.ok(logs.some((line) => line.includes("分配 overseas")));
+    }
+  });
+
   for (const mode of ["all", "overseas", "1"]) {
     it(`mode=${mode} redirects and keeps aliov as the fallback`, () => {
       const out = run(overseas(), withMode(mode));
@@ -304,6 +402,31 @@ describe("url classes", () => {
     const out = run(tricky(), ARGS);
     assert.equal(out.data.dash.video[3].base_url, url(A));
     assert.deepEqual(out.data.dash.video[3].backupUrl, [COS]);
+    assert.deepEqual(out.data.dash.video[3].backup_url, [COS]);
+  });
+
+  it("fills each missing backup alias without replacing the other alias list", () => {
+    for (const backups of [
+      { backupUrl: null, backup_url: null },
+      { backupUrl: [HW], backup_url: null },
+      { backupUrl: null, backup_url: [HW] },
+      { backupUrl: [], backup_url: null },
+      { backupUrl: null, backup_url: [] },
+    ]) {
+      const body = {
+        code: 0,
+        data: {
+          dash: { video: [{ baseUrl: COS, base_url: COS, ...backups }] },
+        },
+      };
+      const out = run(body, ARGS).data.dash.video[0];
+      for (const field of ["backupUrl", "backup_url"]) {
+        assert.deepEqual(
+          out[field],
+          backups[field]?.length ? [url(B), COS] : [COS],
+        );
+      }
+    }
   });
 
   it("promotes only regular siblings in mode pcdn", () => {
@@ -343,6 +466,17 @@ describe("url classes", () => {
       },
     };
     assert.deepEqual(run(body, ARGS), body);
+  });
+
+  it("keeps an unchanged target stream intact even when another stream changes", () => {
+    const original = stream(url(A), []);
+    for (const extra of [[], [stream(COS, [])]]) {
+      const body = {
+        code: 0,
+        data: { dash: { video: [original, ...extra] } },
+      };
+      assert.deepEqual(run(body, ARGS).data.dash.video[0], original);
+    }
   });
 
   it("leaves an mcdn stream without a regular sibling untouched", () => {
