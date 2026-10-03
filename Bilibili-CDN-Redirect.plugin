@@ -1,14 +1,14 @@
 #!name=📺 哔哩哔哩 CDN 重定向 · Apple TV
-#!desc=把哔哩哔哩的视频播放地址改写到指定 CDN 节点，自动绕开 MCDN 与 PCDN，支持改写模式、编码偏好与日志等级。适用于 Apple TV 上的第三方客户端。
+#!desc=把哔哩哔哩视频的播放地址改写到指定 CDN 节点，支持改写模式、编码偏好与日志等级。适用于 Apple TV 上的第三方客户端。
 #!author=Babywbx
 #!homepage=https://github.com/babywbx/Bilibili-CDN-Redirect-Apple-TV
 
 [Argument]
-cdn = select,"cn-hk-eq-01-09.bilivideo.com","cn-hk-eq-01-01.bilivideo.com","cn-hk-eq-01-03.bilivideo.com","cn-hk-eq-01-10.bilivideo.com","cn-hk-eq-01-12.bilivideo.com","cn-hk-eq-01-13.bilivideo.com","cn-hk-eq-01-14.bilivideo.com","upos-sz-mirrorcosov.bilivideo.com","upos-sz-mirroraliov.bilivideo.com",tag=🎯 主链路节点,desc=主链路改写到的 CDN 主机名。cn-hk 开头为香港节点，upos 开头为海外镜像。
-cdn_backup = select,"cn-hk-eq-01-13.bilivideo.com","cn-hk-eq-01-01.bilivideo.com","cn-hk-eq-01-03.bilivideo.com","cn-hk-eq-01-09.bilivideo.com","cn-hk-eq-01-10.bilivideo.com","cn-hk-eq-01-12.bilivideo.com","cn-hk-eq-01-14.bilivideo.com","upos-sz-mirrorcosov.bilivideo.com","upos-sz-mirroraliov.bilivideo.com",tag=🛟 备用链路节点,desc=备用链路改写到的 CDN 主机名，建议与主链路不同。
-mode = select,"all","overseas","pcdn",tag=🧭 改写模式,desc=all：全部改写到指定节点。overseas：仅在分配到海外节点时改写，大陆分配只替换 PCDN。pcdn：不改写节点，只把 MCDN 与 PCDN 主链路换成正规节点。
+cdn = select,"cn-hk-eq-01-09.bilivideo.com","cn-hk-eq-01-01.bilivideo.com","cn-hk-eq-01-03.bilivideo.com","cn-hk-eq-01-10.bilivideo.com","cn-hk-eq-01-12.bilivideo.com","cn-hk-eq-01-13.bilivideo.com","cn-hk-eq-01-14.bilivideo.com","upos-sz-mirrorcosov.bilivideo.com","upos-sz-mirroraliov.bilivideo.com",tag=🎯 主链路节点,desc=主链路改写到的 CDN 节点。cn-hk 开头为香港节点，upos 开头为海外镜像。
+cdn_backup = select,"cn-hk-eq-01-13.bilivideo.com","cn-hk-eq-01-01.bilivideo.com","cn-hk-eq-01-03.bilivideo.com","cn-hk-eq-01-09.bilivideo.com","cn-hk-eq-01-10.bilivideo.com","cn-hk-eq-01-12.bilivideo.com","cn-hk-eq-01-14.bilivideo.com","upos-sz-mirrorcosov.bilivideo.com","upos-sz-mirroraliov.bilivideo.com",tag=🔀 备用链路节点,desc=备用链路改写到的 CDN 节点，建议与主链路不同。
+mode = select,"all","overseas","pcdn",tag=🧭 改写模式,desc=all：全部改写到指定节点。overseas：分配到海外节点时改写，否则同 pcdn。pcdn：只把 MCDN 与 PCDN 主链路换成同一条流里的正规地址。
 codec = select,"AUTO","AVC","HEVC","AV1",tag=🎞️ 编码偏好,desc=AUTO 不筛选编码；AVC 为 H.264，HEVC 为 H.265。
-log_level = select,"WARN","ERROR","INFO","DEBUG",tag=📝 日志等级,desc=脚本日志输出等级。
+log_level = select,"WARN","ERROR","INFO","DEBUG",tag=📝 日志等级,desc=脚本日志输出等级。有改动时，🔔 完成摘要始终输出。
 debug = switch,false,true,tag=🐞 调试模式,desc=开启后日志固定为 DEBUG，排查完成后请关闭。
 
 [Script]

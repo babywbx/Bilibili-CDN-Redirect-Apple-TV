@@ -1,8 +1,8 @@
 #!name=📺 哔哩哔哩 CDN 重定向 · Apple TV
 #!category=By Babywbx
-#!desc=把哔哩哔哩的视频播放地址改写到指定 CDN 节点，自动绕开 MCDN 与 PCDN，支持改写模式、编码偏好与日志等级。适用于 Apple TV 上的第三方客户端。
+#!desc=把哔哩哔哩视频的播放地址改写到指定 CDN 节点，支持改写模式、编码偏好与日志等级。适用于 Apple TV 上的第三方客户端。
 #!arguments=cdn:cn-hk-eq-01-09.bilivideo.com,cdnBackup:cn-hk-eq-01-13.bilivideo.com,mode:all,codec:AUTO,logLevel:WARN,debug:false
-#!arguments-desc=cdn: [主机名] 主链路改写目标\n    ├ 香港节点：cn-hk-eq-01-01 到 cn-hk-eq-01-14（没有 07）\n    └ 海外镜像：upos-sz-mirrorcosov、upos-sz-mirroraliov\n以上均需补全 .bilivideo.com 后缀，默认 cn-hk-eq-01-09.bilivideo.com。\n\ncdnBackup: [主机名] 备用链路改写目标\n候选同上，建议与主链路不同，默认 cn-hk-eq-01-13.bilivideo.com。\n\nmode: [模式] 改写范围，可填名称或数字\n    ├ all 或 0：全部改写到指定节点（默认）\n    ├ overseas 或 1：仅在分配到海外节点时改写，大陆分配只替换 PCDN\n    └ pcdn 或 2：不改写节点，只把 MCDN 与 PCDN 主链路换成正规节点\n\ncodec: [编码] 视频编码偏好\n    ├ AUTO：不筛选（默认）\n    ├ AVC：H.264\n    ├ HEVC：H.265\n    └ AV1：AV1\n\nlogLevel: [日志] 日志等级\n    ├ ERROR：仅错误\n    ├ WARN：警告（默认）\n    ├ INFO：信息\n    └ DEBUG：调试\n\ndebug: [调试] 调试开关\n    ├ true：日志固定为 DEBUG，并写入请求备注\n    └ false：关闭（默认）\n排查完成后请关闭。
+#!arguments-desc=cdn：主链路节点\n    ├ 香港：cn-hk-eq-01-01 至 cn-hk-eq-01-14（没有 07）\n    └ 海外：upos-sz-mirrorcosov、upos-sz-mirroraliov\n需补全 .bilivideo.com 后缀，默认 cn-hk-eq-01-09.bilivideo.com。\n\ncdnBackup：备用链路节点\n候选同上，建议与主链路不同，默认 cn-hk-eq-01-13.bilivideo.com。\n\nmode：改写模式，填名称或数字均可\n    ├ all 或 0：全部改写到指定节点（默认）\n    ├ overseas 或 1：分配到海外节点时改写，否则同 pcdn\n    └ pcdn 或 2：只把 MCDN 与 PCDN 主链路换成同一条流里的正规地址\n个别 MCDN 地址无法重建时保留原样。\n\ncodec：视频编码偏好\n    ├ AUTO：不筛选（默认）\n    ├ AVC：H.264\n    ├ HEVC：H.265\n    └ AV1：AV1\n\nlogLevel：日志等级\n    ├ ERROR：错误\n    ├ WARN：警告（默认）\n    ├ INFO：信息\n    └ DEBUG：调试\n有改动时，🔔 完成摘要始终输出。\n\ndebug：调试模式\n    ├ true：日志固定为 DEBUG，并写入请求备注\n    └ false：关闭（默认）
 
 [Script]
 哔哩哔哩 CDN 重定向 = type=http-response,pattern=^https?:\/\/api\.bilibili\.com\/(?:x\/player\/(?:wbi\/)?playurl|pgc\/player\/web\/(?:v\d\/)?playurl|pugv\/player\/web\/playurl),requires-body=1,engine=jsc,script-path=https://raw.githubusercontent.com/babywbx/Bilibili-CDN-Redirect-Apple-TV/main/Bilibili-CDN-Redirect.js,argument=cdn={{{cdn}}}&cdn_backup={{{cdnBackup}}}&mode={{{mode}}}&codec={{{codec}}}&log_level={{{logLevel}}}&debug={{{debug}}},debug={{{debug}}}
